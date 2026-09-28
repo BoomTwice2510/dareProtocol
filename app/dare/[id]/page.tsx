@@ -58,6 +58,19 @@ export default function DareDetailPage({
         bigint,
         number
       ];
+      const meta = (await readContract("getDareMeta", [BigInt(dareId)])) as [
+        boolean,
+        bigint,
+        bigint,
+        bigint,
+        string,
+        string,
+        string,
+        bigint,
+        bigint,
+        bigint
+      ];
+
       setDare({
         id: dareId,
         creator: result[0],
@@ -72,6 +85,7 @@ export default function DareDetailPage({
         proofTime: result[9],
         disputeTime: result[10],
         status: result[11],
+        proofRequired: meta[0],
       });
 
       // Fetch winner if resolved

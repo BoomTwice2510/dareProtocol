@@ -12,6 +12,7 @@ export interface DareData {
   proofTime: bigint;
   disputeTime: bigint;
   status: number;
+  proofRequired?: boolean;
 }
 
 export interface UserStats {

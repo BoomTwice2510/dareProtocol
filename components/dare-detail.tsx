@@ -434,7 +434,10 @@ export function DareDetail({ dare, onRefresh }: DareDetailProps) {
 
   const handleResolveProofTimeout = () =>
     executeAction(
-      () => writeContract("resolveAfterProofTimeout", [BigInt(dare.id)]),
+      () =>
+        dare.proofRequired
+          ? writeContract("resolveAfterProofTimeout", [BigInt(dare.id)])
+          : writeContract("resolveNoProofRequired", [BigInt(dare.id)]),
       "Resolved"
     );
 
@@ -837,7 +840,8 @@ export function DareDetail({ dare, onRefresh }: DareDetailProps) {
 
             {isDeadlinePassed(dare.deadline) &&
               !isInProofWindow(dare.deadline) &&
-              !dare.proofSubmitted && (
+              !dare.proofSubmitted &&
+              dare.proofRequired !== undefined && (
                 <Button
                   onClick={() =>
                     setConfirmAction({
