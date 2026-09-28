@@ -208,6 +208,13 @@ export function Web3Provider({ children }: { children: ReactNode }) {
       }
 
       try {
+        // Base Sepolia can return an invalid/oversized automatic gas estimate for
+        // resolveAfterProofTimeout on older Dare states. The contract path itself
+        // is bounded, so bypass the bad estimator for this one action only.
+        // Keep every other transaction on the wallet/RPC's normal estimation.
+        const gas =
+          functionName === "resolveAfterProofTimeout" ? 500_000n : undefined;
+
         const hash = await (walletClient as any).writeContract({
           address: CONTRACT_ADDRESS,
           abi: DARE_ABI as any,
@@ -216,6 +223,7 @@ export function Web3Provider({ children }: { children: ReactNode }) {
           value,
           account: address,
           chain: baseSepolia,
+          ...(gas !== undefined ? { gas } : {}),
         } as any);
         return hash as `0x${string}`;
       } catch (error: any) {
