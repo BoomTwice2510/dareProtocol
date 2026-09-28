@@ -1,30 +1,12 @@
 // app/home-client.tsx
 "use client";
 
-import { useEffect } from "react";
-import { sdk } from "@farcaster/miniapp-sdk";
 import { Header } from "@/components/header";
 import { LandingDesktop } from "@/components/landing-desktop";
 import { LandingMobile } from "@/components/landing-mobile";
 
 export default function HomePageClient() {
-  useEffect(() => {
-    let cancelled = false;
 
-    const markReady = async () => {
-      try {
-        if (!sdk || cancelled) return;
-        await sdk.actions.ready();
-      } catch (err) {
-        console.error("sdk.actions.ready() failed", err);
-      }
-    };
-
-    markReady();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   return (
     <div className="relative min-h-screen w-full overflow-x-clip bg-white text-slate-900">
@@ -42,7 +24,7 @@ export default function HomePageClient() {
         <LandingDesktop />
       </div>
 
-      {/* Mobile landing view – PWA & Farcaster Mini-App style */}
+      {/* Mobile landing view */}
       <div className="relative z-10 block pb-[calc(4rem+env(safe-area-inset-bottom))] md:hidden">
         <LandingMobile />
       </div>

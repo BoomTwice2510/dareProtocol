@@ -12,7 +12,6 @@ export const FLASH_TASK_CATEGORIES:FlashTaskCategory[]=[
   t("deploy-testnet","Deploy a contract on Base Sepolia","Deploy a contract to Base Sepolia and leave the deployment publicly inspectable.",86400,"Base Sepolia explorer transaction URL"),
  ]},
  {id:"creator",name:"Creator & social",emoji:"✍️",description:"Public posts and links that another person can verify directly.",failureRating:2,templates:[
-  t("farcaster-3","Publish 3 Farcaster casts","Publish three original casts during the challenge window.",86400,"Public Farcaster profile/cast links"),
   t("build-update","Publish one build update","Share a concrete progress update about something you are building.",86400,"Public post URL"),
  ]},
  {id:"learning",name:"Learning & skill",emoji:"📚",description:"A finished artifact is the proof, not a claim that you studied.",failureRating:2,templates:[

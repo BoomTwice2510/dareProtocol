@@ -31,13 +31,6 @@ import Link from "next/link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
-type FarcasterUser = {
-  fid: number;
-  username: string;
-  display_name?: string;
-  pfp_url?: string;
-};
-
 const INITIAL_LIMIT = 20;
 const SECOND_LIMIT = 30;
 const MAX_LIMIT = 50;
@@ -76,13 +69,12 @@ export default function ProfilePage({
   params: Promise<{ address: string }>;
 }) {
   const { address: paramAddress } = use(params);
-  const { readContract, address: connectedAddress } = useWeb3();
+  const { readContract, address: connectedAddress, signMessage } = useWeb3();
   const [stats, setStats] = useState<UserStats | null>(null);
   const [badge, setBadge] = useState<number>(0);
   const [userDares, setUserDares] = useState<DareData[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [fcUser, setFcUser] = useState<FarcasterUser | null>(null);
   const [displayLimit, setDisplayLimit] = useState<number>(INITIAL_LIMIT);
   const [totalFound, setTotalFound] = useState<number>(0);
   const [profileMeta, setProfileMeta] = useState<{
@@ -126,8 +118,8 @@ export default function ProfilePage({
       setProfileSaveError("Please select an image file.");
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setProfileSaveError("Avatar must be 5 MB or smaller.");
+    if (file.size > 2 * 1024 * 1024) {
+      setProfileSaveError("Avatar must be 2 MB or smaller.");
       return;
     }
     setProfileSaveError("");
@@ -148,10 +140,15 @@ export default function ProfilePage({
     setProfileSaveError("");
 
     try {
+      const challengeRes = await fetch("/api/profile/challenge", { cache: "no-store" });
+      const challengeData = await challengeRes.json();
+      if (!challengeRes.ok || !challengeData?.message) throw new Error("Could not start profile verification.");
+      const signature = await signMessage(challengeData.message);
+
       const form = new FormData();
       form.append("wallet", connectedAddress);
       form.append("username", username);
-      form.append("badge", String(badge));
+      form.append("signature", signature);
       if (avatarFile) form.append("avatar", avatarFile);
 
       const res = await fetch("/api/profile", {
@@ -273,36 +270,6 @@ export default function ProfilePage({
     fetchProfile();
   }, [fetchProfile]);
 
-  const fid = 0;
-
-  useEffect(() => {
-    async function fetchFarcasterProfile() {
-      try {
-        if (!fid) return;
-        const res = await fetch(
-          `https://api.neynar.com/v2/farcaster/user/by_id?fid=${fid}`,
-          {
-            headers: {
-              "x-api-key": process.env.NEXT_PUBLIC_NEYNAR_API_KEY as string,
-            },
-          },
-        );
-        if (!res.ok) return;
-        const data = await res.json();
-        const user = data.user;
-        setFcUser({
-          fid: user.fid,
-          username: user.username,
-          display_name: user.display_name,
-          pfp_url: user.pfp_url || user.profile?.pfp_url,
-        });
-      } catch {
-        // Farcaster identity is optional for an on-chain profile.
-      }
-    }
-    fetchFarcasterProfile();
-  }, [fid]);
-
   const handleCopy = () => {
     navigator.clipboard.writeText(profileAddress);
     setCopied(true);
@@ -369,11 +336,11 @@ export default function ProfilePage({
               {/* 3D Glass Avatar Container: strictly locked to 64px on mobile, 80px on sm */}
               <div className="relative h-16 w-16 min-w-[4rem] max-w-[4rem] sm:h-20 sm:w-20 sm:min-w-[5rem] sm:max-w-[5rem] shrink-0">
                 <div className="relative flex h-full w-full items-center justify-center rounded-2xl sm:rounded-3xl bg-gradient-to-br from-blue-50 via-white to-blue-100/80 border border-blue-200/80 shadow-[0_4px_18px_rgba(0,82,255,0.14)] overflow-hidden">
-                  {profileMeta.avatar_url || fcUser?.pfp_url ? (
+                  {profileMeta.avatar_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={profileMeta.avatar_url || fcUser?.pfp_url || ""}
-                      alt={profileMeta.username || fcUser?.display_name || fcUser?.username || "Profile"}
+                      src={profileMeta.avatar_url || ""}
+                      alt={profileMeta.username || "Profile"}
                       className="block h-full w-full max-h-full max-w-full aspect-square object-cover"
                     />
                   ) : (
@@ -411,9 +378,8 @@ export default function ProfilePage({
                   )}
                 </div>
 
-                {(profileMeta.username || fcUser?.username) && (
+                {profileMeta.username && (
                   <div className="truncate text-xs font-bold text-slate-500 mb-0.5">
-                    @{profileMeta.username || fcUser?.username}
                   </div>
                 )}
 

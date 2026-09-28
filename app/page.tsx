@@ -3,20 +3,6 @@ import HomePageClient from "./home-client";
 
 const appUrl = "https://www.dareprotocol.com";
 
-const dareMiniAppEmbed = {
-  version: "next",
-  imageUrl: `${appUrl}/images/hero.png`,
-  button: {
-    title: "Open Dare Protocol",
-    action: {
-      type: "launch_miniapp",
-      name: "Dare Protocol",
-      url: appUrl,
-      splashImageUrl: `${appUrl}/images/splash.png`,
-      splashBackgroundColor: "#FFFFFF",
-    },
-  },
-};
 
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
@@ -39,10 +25,6 @@ export const metadata: Metadata = {
     ],
     locale: "en_US",
     type: "website",
-  },
-  other: {
-    "fc:miniapp": JSON.stringify(dareMiniAppEmbed),
-    "fc:frame": JSON.stringify(dareMiniAppEmbed),
   },
 };
 

@@ -16,20 +16,6 @@ const inter = Inter({
 
 const appUrl = "https://www.dareprotocol.com";
 
-const dareMiniAppEmbed = {
-  version: "next",
-  imageUrl: `${appUrl}/images/hero.png`,
-  button: {
-    title: "Open Dare Protocol",
-    action: {
-      type: "launch_miniapp",
-      name: "Dare Protocol",
-      url: appUrl,
-      splashImageUrl: `${appUrl}/images/splash.png`,
-      splashBackgroundColor: "#FFFFFF",
-    },
-  },
-};
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -69,8 +55,6 @@ export const metadata: Metadata = {
     ],
   },
   other: {
-    "fc:miniapp": JSON.stringify(dareMiniAppEmbed),
-    "fc:frame": JSON.stringify(dareMiniAppEmbed),
     "base:app_id": "697782ba88e3bac59cf3d9c8",
   },
 };

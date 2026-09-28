@@ -792,7 +792,6 @@ const SAMPLE_TASKS = [
   { title: "30-min workout", task: "Complete one 30-minute workout session.", proof: "Fitness app activity screenshot showing at least 30 minutes and the session date." },
   { title: "8,000 steps", task: "Reach at least 8,000 steps on the same calendar day.", proof: "Apple Health, Google Fit or equivalent screenshot showing the date and 8,000+ steps." },
   { title: "Close a GitHub issue", task: "Close one specified GitHub issue with the required fix merged.", proof: "Public GitHub issue and merged pull request links showing the issue was closed by the required change." },
-  { title: "Publish 3 Farcaster casts", task: "Publish three original Farcaster casts before the deadline.", proof: "Links to the three public casts, each timestamped before the deadline." },
   { title: "10 coding problems", task: "Complete 10 specified coding problems before the deadline.", proof: "Public submission links or repository commits showing all 10 completed problems." },
   { title: "10 acts of kindness", task: "Complete 10 distinct, documented acts of kindness before the deadline.", proof: "A dated list with independently inspectable evidence for each act where practical." },
   { title: "Cycle 10 km", task: "Complete a 10 km outdoor cycling session before the deadline.", proof: "Strava, Garmin or equivalent activity link showing 10 km, date and one continuous ride." },

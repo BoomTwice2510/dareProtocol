@@ -37,7 +37,7 @@ function CardProfileIdentity({ address, role, accent }: { address: string; role:
           setProfile({
             username: data.profile.username ?? null,
             avatar_url: data.profile.avatar_url ?? null,
-            badge: data.profile.badge == null ? null : Number(data.profile.badge),
+            badge: null,
           });
         }
       })
@@ -89,14 +89,12 @@ export function DareCard({ dare }: { dare: DareCardData }) {
     return () => window.clearInterval(timer);
   }, []);
 
-  const share = (network: "x" | "whatsapp" | "farcaster") => {
+  const share = (network: "x" | "whatsapp") => {
     const link = `${url}/dare/${dare.id}`;
     const shareText = `On-chain dare: ${dare.description.slice(0, 120)}`;
     const target = network === "x"
       ? `https://twitter.com/intent/tweet?${new URLSearchParams({ text: shareText, url: link })}`
-      : network === "whatsapp"
-        ? `https://wa.me/?${new URLSearchParams({ text: `${shareText} ${link}` })}`
-        : `https://warpcast.com/~/compose?${new URLSearchParams({ text: `${shareText} ${link}` })}`;
+      : `https://wa.me/?${new URLSearchParams({ text: `${shareText} ${link}` })}`;
     window.open(target, "_blank", "noopener,noreferrer");
   };
 
@@ -255,9 +253,6 @@ export function DareCard({ dare }: { dare: DareCardData }) {
           </button>
           <button type="button" aria-label="Share on WhatsApp" onClick={() => share("whatsapp")} className="flex h-8 w-8 items-center justify-center rounded-xl border border-emerald-100 bg-white text-emerald-600 hover:bg-emerald-50 active:scale-90 transition-all shadow-xs cursor-pointer touch-manipulation">
             <Image src="/icons/whatsapp.svg" alt="WhatsApp" width={12} height={12} />
-          </button>
-          <button type="button" aria-label="Share on Farcaster" onClick={() => share("farcaster")} className="flex h-8 w-8 items-center justify-center rounded-xl border border-violet-100 bg-white text-violet-600 hover:bg-violet-50 active:scale-90 transition-all shadow-xs cursor-pointer touch-manipulation">
-            <Image src="/icons/farcaster.svg" alt="Farcaster" width={12} height={12} />
           </button>
         </div>
       </div>

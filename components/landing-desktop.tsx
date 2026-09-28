@@ -176,7 +176,7 @@ export function LandingDesktop() {
             <li>Connect your wallet on Base Sepolia network.</li>
             <li>Use Explore to browse live dares.</li>
             <li>Create a clear, verifiable challenge.</li>
-            <li>Share the dare with friends or Farcaster frames.</li>
+            <li>Share the dare with friends on the web.</li>
           </ol>
         </div>
       </section>
