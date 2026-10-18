@@ -49,3 +49,8 @@ See `.env.example` and `MAINNET_READINESS.md`.
 ## Mainnet rule
 
 Do not deploy the immutable mainnet contract until the complete test matrix in `MAINNET_READINESS.md` is green and the constructor addresses have been independently verified.
+
+
+## Blockscout on-chain activity
+
+Open `/onchain` to view DareProtocol contract metadata and recent transactions fetched server-side from Blockscout API v2. Configuration and verification steps are documented in [`BLOCKSCOUT_INTEGRATION.md`](./BLOCKSCOUT_INTEGRATION.md).

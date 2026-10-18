@@ -38,7 +38,7 @@ import {
   Coins,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { type Address, type Hash } from "viem";
+import { keccak256, toBytes, type Address, type Hash } from "viem";
 import Link from "next/link";
 
 interface DareDetailProps {
@@ -410,7 +410,19 @@ export function DareDetail({ dare, onRefresh }: DareDetailProps) {
 
   const handleSubmitProof = () =>
     executeAction(
-      () => writeContract("submitProof", [BigInt(dare.id), proofURI]),
+      () => {
+        const normalizedProofURI = proofURI.trim();
+        if (!normalizedProofURI) {
+          throw new Error("Enter a proof URL before submitting.");
+        }
+        if (new TextEncoder().encode(normalizedProofURI).length > 2048) {
+          throw new Error("Proof URL must be 2,048 bytes or fewer.");
+        }
+        // The contract requires bytes32 proofHash. Hash the exact URI string
+        // so the submitted proof reference is committed on-chain.
+        const proofHash = keccak256(toBytes(normalizedProofURI));
+        return writeContract("submitProof", [BigInt(dare.id), normalizedProofURI, proofHash]);
+      },
       "Proof submitted"
     );
 
@@ -596,7 +608,7 @@ export function DareDetail({ dare, onRefresh }: DareDetailProps) {
           <div className="flex items-center gap-1.5">
             <Clock className="h-3.5 w-3.5 text-slate-400" />
             <span>
-              Deadline:{" "}
+              {dare.status === DareStatus.Open ? "Accept by:" : "Task deadline:"}{" "}
               <b className="text-slate-800">
                 {new Date(Number(dare.deadline) * 1000).toLocaleDateString()}{" "}
                 {new Date(Number(dare.deadline) * 1000).toLocaleTimeString()}
@@ -606,7 +618,9 @@ export function DareDetail({ dare, onRefresh }: DareDetailProps) {
           {(dare.status === DareStatus.Open ||
             dare.status === DareStatus.Running) && (
             <div className="flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-bold text-[#0052FF]">
-              <span>{timeRemaining(dare.deadline)} remaining</span>
+              <span>
+                {timeRemaining(dare.deadline)} {dare.status === DareStatus.Open ? "to accept" : "to complete task"}
+              </span>
             </div>
           )}
         </div>

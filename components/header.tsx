@@ -34,6 +34,7 @@ const BASE_SEPOLIA_PARAMS = {
 const desktopLinks = [
   { href: "/", label: "Home" },
   { href: "/explore", label: "Explore" },
+  { href: "/onchain", label: "On-chain Activity" },
   { href: "/create", label: "Create" },
   { href: "/leaderboard", label: "Leaderboard" },
 ];
