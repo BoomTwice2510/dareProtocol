@@ -38,7 +38,7 @@ import {
   Coins,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { keccak256, toBytes, type Address, type Hash } from "viem";
+import { type Address, type Hash, keccak256, stringToHex } from "viem";
 import Link from "next/link";
 
 interface DareDetailProps {
@@ -232,12 +232,16 @@ export function DareDetail({ dare, onRefresh }: DareDetailProps) {
     approveToken,
     getAllowance,
     readContract,
+    publicClient,
     connect,
   } = useWeb3();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [proofURI, setProofURI] = useState("");
+  const [disputeReason, setDisputeReason] = useState("");
+  const [newEvidenceURI, setNewEvidenceURI] = useState("");
+  const [disputeEvidence, setDisputeEvidence] = useState<Array<{ submitter: string; uri: string; contentHash: string; submittedAt: bigint }>>([]);
   const [proofError, setProofError] = useState("");
   const [copied, setCopied] = useState(false);
   const [judgeAddress, setJudgeAddress] = useState<string>("");
@@ -280,6 +284,23 @@ export function DareDetail({ dare, onRefresh }: DareDetailProps) {
   }, [readContract]);
 
   const isJudge = address?.toLowerCase() === judgeAddress?.toLowerCase();
+  const canReviewPrivateEvidence = Boolean(address && (isJudge || address.toLowerCase() === dare?.creator?.toLowerCase() || address.toLowerCase() === dare?.accepter?.toLowerCase()));
+
+  useEffect(() => {
+    if (!dare || dare.status !== DareStatus.Disputed || !canReviewPrivateEvidence) {
+      setDisputeEvidence([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const count = Number(await readContract("getEvidenceCount", [BigInt(dare.id)]));
+        const rows = await Promise.all(Array.from({ length: Math.min(count, 20) }, (_, i) => readContract("getEvidence", [BigInt(dare.id), BigInt(i)])));
+        if (!cancelled) setDisputeEvidence(rows.map((r: any) => ({ submitter: r[0], uri: r[1], contentHash: r[2], submittedAt: BigInt(r[3]) })));
+      } catch (e) { console.error("Could not load dispute evidence", e); }
+    })();
+    return () => { cancelled = true; };
+  }, [dare?.id, dare?.status, canReviewPrivateEvidence, readContract]);
 
   const copyAddress = (addr: string) => {
     navigator.clipboard.writeText(addr);
@@ -410,19 +431,7 @@ export function DareDetail({ dare, onRefresh }: DareDetailProps) {
 
   const handleSubmitProof = () =>
     executeAction(
-      () => {
-        const normalizedProofURI = proofURI.trim();
-        if (!normalizedProofURI) {
-          throw new Error("Enter a proof URL before submitting.");
-        }
-        if (new TextEncoder().encode(normalizedProofURI).length > 2048) {
-          throw new Error("Proof URL must be 2,048 bytes or fewer.");
-        }
-        // The contract requires bytes32 proofHash. Hash the exact URI string
-        // so the submitted proof reference is committed on-chain.
-        const proofHash = keccak256(toBytes(normalizedProofURI));
-        return writeContract("submitProof", [BigInt(dare.id), normalizedProofURI, proofHash]);
-      },
+      () => writeContract("submitProof", [BigInt(dare.id), proofURI]),
       "Proof submitted"
     );
 
@@ -432,11 +441,25 @@ export function DareDetail({ dare, onRefresh }: DareDetailProps) {
       "Dare confirmed"
     );
 
-  const handleDispute = () =>
-    executeAction(
-      () => writeContract("disputeDare", [BigInt(dare.id)]),
-      "Dare disputed"
-    );
+  const handleDispute = () => {
+    const reason = disputeReason.trim();
+    if (reason.length < 12) { setError("Please explain the dispute in at least 12 characters."); return; }
+    const reasonHash = keccak256(stringToHex(reason));
+    executeAction(async () => {
+      const disputeHash = await writeContract("disputeDare", [BigInt(dare.id), reasonHash]);
+      await publicClient.waitForTransactionReceipt({ hash: disputeHash });
+      // The existing contract has no plaintext reason field. Publish the readable reason
+      // through its existing evidence mechanism in a second transaction, without redeploying.
+      return writeContract("submitEvidence", [BigInt(dare.id), `DISPUTE REASON: ${reason}`, keccak256(stringToHex(`DISPUTE REASON: ${reason}`))]);
+    }, "Dispute opened and reason submitted");
+  };
+
+  const handleSubmitAdditionalEvidence = () => {
+    const uri = newEvidenceURI.trim();
+    if (!uri || uri.length > 2048) { setError("Enter an evidence URL or explanation (maximum 2048 characters)."); return; }
+    const hash = keccak256(stringToHex(uri));
+    executeAction(() => writeContract("submitEvidence", [BigInt(dare.id), uri, hash]), "Evidence submitted");
+  };
 
   const handleResolveConfirmTimeout = () =>
     executeAction(
@@ -608,7 +631,7 @@ export function DareDetail({ dare, onRefresh }: DareDetailProps) {
           <div className="flex items-center gap-1.5">
             <Clock className="h-3.5 w-3.5 text-slate-400" />
             <span>
-              {dare.status === DareStatus.Open ? "Accept by:" : "Task deadline:"}{" "}
+              Deadline:{" "}
               <b className="text-slate-800">
                 {new Date(Number(dare.deadline) * 1000).toLocaleDateString()}{" "}
                 {new Date(Number(dare.deadline) * 1000).toLocaleTimeString()}
@@ -618,9 +641,7 @@ export function DareDetail({ dare, onRefresh }: DareDetailProps) {
           {(dare.status === DareStatus.Open ||
             dare.status === DareStatus.Running) && (
             <div className="flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-bold text-[#0052FF]">
-              <span>
-                {timeRemaining(dare.deadline)} {dare.status === DareStatus.Open ? "to accept" : "to complete task"}
-              </span>
+              <span>{timeRemaining(dare.deadline)} remaining</span>
             </div>
           )}
         </div>
@@ -945,6 +966,34 @@ export function DareDetail({ dare, onRefresh }: DareDetailProps) {
         {/* --- DISPUTED STATE --- */}
         {dare.status === DareStatus.Disputed && (
           <>
+            {canReviewPrivateEvidence && (
+              <section className="glass-panel rounded-3xl p-5 space-y-4">
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">Dispute evidence · parties and judge only</h3>
+                  <p className="mt-1 text-xs text-slate-500">The readable dispute reason and supporting evidence are recorded through the existing contract. Anyone can inspect public blockchain data independently.</p>
+                </div>
+                <div className="space-y-2">
+                  {disputeEvidence.length === 0 && <p className="text-xs text-slate-500">No evidence records loaded yet. Refresh after the transaction confirms.</p>}
+                  {disputeEvidence.map((item, index) => (
+                    <div key={`${item.contentHash}-${index}`} className="rounded-2xl border border-slate-200 bg-white/80 p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-bold text-slate-500">
+                        <span>{item.uri.startsWith("DISPUTE REASON:") ? "Creator dispute reason" : `Evidence ${index + 1}`}</span>
+                        <span>{shortenAddress(item.submitter)}</span>
+                      </div>
+                      <p className="mt-2 break-words text-sm text-slate-800">{item.uri.startsWith("http://") || item.uri.startsWith("https://") ? <a href={item.uri} target="_blank" rel="noreferrer" className="text-blue-600 underline">Open evidence document <ExternalLink className="inline h-3 w-3" /></a> : item.uri}</p>
+                      <p className="mt-1 break-all text-[10px] text-slate-400">Hash: {item.contentHash}</p>
+                    </div>
+                  ))}
+                </div>
+                {(isCreator || isAccepter) && (
+                  <div className="space-y-2 border-t border-slate-200 pt-4">
+                    <label className="text-xs font-bold text-slate-700">Submit supporting evidence (URL or explanation)</label>
+                    <textarea value={newEvidenceURI} onChange={(e) => setNewEvidenceURI(e.target.value)} maxLength={2048} rows={3} placeholder="Paste a document URL or add your explanation..." className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
+                    <Button onClick={handleSubmitAdditionalEvidence} disabled={isLoading || newEvidenceURI.trim().length === 0} className="w-full">{isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Submit Evidence On-chain</Button>
+                  </div>
+                )}
+              </section>
+            )}
             {isJudge && isInJudgeWindow(dare.disputeTime) && (
               <div className="glass-card-interactive flex flex-col gap-3.5 rounded-[24px] p-5 shadow-xs">
                 <div className="flex items-center gap-2">
@@ -1065,6 +1114,13 @@ export function DareDetail({ dare, onRefresh }: DareDetailProps) {
                 "Confirm judge ruling that the accepter wins this disputed challenge?"}
             </p>
 
+            {confirmAction.type === "dispute" && (
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-700">Why are you disputing this proof? (required)</label>
+                <textarea value={disputeReason} onChange={(e) => setDisputeReason(e.target.value)} maxLength={1800} rows={4} placeholder="Explain what is incorrect or missing in the submitted proof..." className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-900 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100" />
+                <p className="text-[11px] text-slate-500">This reason will be published on-chain as evidence and visible to the other party and judge.</p>
+              </div>
+            )}
             <div className="flex gap-2.5 pt-2">
               <Button
                 variant="outline"
@@ -1076,7 +1132,7 @@ export function DareDetail({ dare, onRefresh }: DareDetailProps) {
               </Button>
               <Button
                 className="flex-1 h-11 min-h-[44px] rounded-xl bg-gradient-to-b from-[#0052FF] to-[#0045d8] text-white hover:to-[#003bb8] text-xs font-black shadow-[0_4px_14px_rgba(0,82,255,0.25)] cursor-pointer"
-                disabled={isLoading}
+                disabled={isLoading || (confirmAction.type === "dispute" && disputeReason.trim().length < 12)}
                 onClick={() => {
                   if (confirmAction.type === "cancel") return handleCancel();
                   if (confirmAction.type === "expire") return handleExpire();

@@ -35,14 +35,14 @@ export default function DareDetailPage({
 
   const dareId = parseInt(id, 10);
 
-  const fetchDare = useCallback(async () => {
+  const fetchDare = useCallback(async (showLoader = true) => {
     if (isNaN(dareId)) {
       setError("Invalid dare ID");
       setLoading(false);
       return;
     }
 
-    setLoading(true);
+    if (showLoader) setLoading(true);
     try {
       const result = (await readContract("getDare", [BigInt(dareId)])) as [
         string,
@@ -102,7 +102,7 @@ export default function DareDetailPage({
     } catch (err) {
       setError("Failed to load dare data");
     } finally {
-      setLoading(false);
+      if (showLoader) setLoading(false);
     }
   }, [dareId, readContract]);
 
@@ -247,7 +247,7 @@ export default function DareDetailPage({
         {/* Dare Content Core Wrapper */}
         {dare && !loading && !error && (
           <div className="glass-panel relative rounded-[32px] p-5 sm:p-7 md:p-8 shadow-[0_12px_45px_rgba(15,23,42,0.04)]">
-            <DareDetail dare={dare} onRefresh={fetchDare} />
+            <DareDetail dare={dare} onRefresh={() => fetchDare(false)} />
           </div>
         )}
       </main>

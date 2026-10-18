@@ -19,6 +19,7 @@ import {
   Wallet,
   X,
   Sparkles,
+  Scale,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -50,16 +51,30 @@ export function Header() {
     disconnect,
     chainId,
     switchToBaseSepolia,
+    readContract,
   } = useWeb3();
   const { toast } = useToast();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [walletPickerOpen, setWalletPickerOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [judgeAddress, setJudgeAddress] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    readContract("judge", [])
+      .then((value) => { if (!cancelled) setJudgeAddress(String(value)); })
+      .catch(() => { if (!cancelled) setJudgeAddress(null); });
+    return () => { cancelled = true; };
+  }, [readContract]);
+
+  const isDesignatedJudge = Boolean(
+    mounted && address && judgeAddress && address.toLowerCase() === judgeAddress.toLowerCase()
+  );
 
   // Keep the server render and the first client render identical.
   // Wallet state is browser-only and can change during hydration.
@@ -221,6 +236,14 @@ export function Header() {
             >
               FAQ
             </Link>
+            {isDesignatedJudge && (
+              <Link href="/judge" className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all",
+                isActive("/judge") ? "bg-indigo-600 text-white shadow-sm" : "bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+              )}>
+                <Scale className="h-3.5 w-3.5" /> Judge
+              </Link>
+            )}
           </nav>
 
           {/* Action Header Pills */}
@@ -337,6 +360,14 @@ export function Header() {
                   {item.label}
                 </Link>
               ))}
+              {isDesignatedJudge && (
+                <Link href="/judge" onClick={() => setMenuOpen(false)} className={cn(
+                  "flex items-center justify-center gap-2 rounded-xl border border-indigo-100 bg-indigo-50 py-2.5 px-3 text-xs font-bold text-indigo-700",
+                  isActive("/judge") && "bg-indigo-600 text-white"
+                )}>
+                  <Scale className="h-3.5 w-3.5" /> Judge Console
+                </Link>
+              )}
             </div>
 
             {renderIsConnected && renderAddress && (
