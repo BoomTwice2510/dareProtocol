@@ -38,6 +38,13 @@ export default function JudgePage() {
   const [notice, setNotice] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
   const [reasons, setReasons] = useState<Record<number, string>>({});
+  const [clockNow, setClockNow] = useState(() => Math.floor(Date.now() / 1000));
+
+  // Keep deadline-based controls in sync without requiring a manual page refresh.
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockNow(Math.floor(Date.now() / 1000)), 15_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const isJudge = Boolean(address && judgeAddress && address.toLowerCase() === judgeAddress.toLowerCase());
   const isBaseSepolia = chainId === 84532;
@@ -92,8 +99,8 @@ export default function JudgePage() {
 
   const stats = useMemo(() => ({
     open: disputes.length,
-    evidenceReady: disputes.filter((d) => BigInt(Math.floor(Date.now() / 1000)) >= d.evidenceDeadline).length,
-  }), [disputes]);
+    evidenceReady: disputes.filter((d) => BigInt(clockNow) >= d.evidenceDeadline).length,
+  }), [disputes, clockNow]);
 
   async function resolve(dispute: Dispute, creatorWins: boolean) {
     const reason = (reasons[dispute.id] || "").trim();
@@ -149,7 +156,7 @@ export default function JudgePage() {
             {error && <div role="alert" className="mb-5 flex gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"><AlertTriangle size={18} className="shrink-0"/>{error}</div>}
             {notice && <div role="status" className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{notice}</div>}
             {loading ? <div className="flex items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white p-12 text-sm text-slate-500"><Loader2 className="animate-spin" size={20}/> Loading disputed Dares…</div> : disputes.length === 0 ? <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center shadow-sm"><CheckCircle2 className="mx-auto text-emerald-500" size={34}/><h2 className="mt-3 text-xl font-extrabold">No open disputes</h2><p className="mt-2 text-sm text-slate-500">No disputed Dares were found in the latest 300 contract records.</p></div> : <div className="space-y-5">{disputes.map((d) => {
-              const now = BigInt(Math.floor(Date.now() / 1000));
+              const now = BigInt(clockNow);
               const evidenceOpen = now < d.evidenceDeadline;
               const judgeWindowEnd = d.disputeTime + 48n * 60n * 60n;
               const judgeWindowOpen = now <= judgeWindowEnd;
@@ -162,6 +169,9 @@ export default function JudgePage() {
                   <label htmlFor={`reason-${d.id}`} className="mb-2 block text-sm font-extrabold">Resolution rationale <span className="font-normal text-slate-400">(hashed on-chain)</span></label><textarea id={`reason-${d.id}`} value={reasons[d.id] || ""} onChange={(e) => setReasons((p) => ({ ...p, [d.id]: e.target.value }))} maxLength={1000} placeholder="Summarize why the evidence supports your decision…" className="min-h-24 w-full resize-y rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-50"/><p className="mt-1 text-[11px] text-slate-400">Only the reason hash is stored on-chain. Keep your detailed notes in your case records.</p>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2"><button disabled={!canResolve || !isBaseSepolia || busyId !== null || (reasons[d.id] || "").trim().length < 8} onClick={() => void resolve(d, true)} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-extrabold text-white shadow-[0_4px_0_#047857] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-45"><CheckCircle2 size={17}/>{busyId === d.id ? "Waiting for wallet…" : "Rule for creator"}</button><button disabled={!canResolve || !isBaseSepolia || busyId !== null || (reasons[d.id] || "").trim().length < 8 || d.accepter === ZERO} onClick={() => void resolve(d, false)} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#0052FF] px-4 py-3 text-sm font-extrabold text-white shadow-[0_4px_0_#003bc4] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-45"><Gavel size={17}/>{busyId === d.id ? "Waiting for wallet…" : "Rule for accepter"}</button></div>
                   <p className="mt-3 text-[11px] leading-5 text-slate-400">Resolution is irreversible once confirmed. Verify both parties, evidence and deadlines before submitting. The contract enforces judge permissions and timing.</p>
+                  {evidenceOpen && <p role="status" className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold leading-5 text-amber-800">Decision buttons are locked until the 24-hour evidence window ends. This is enforced by the deployed smart contract, so an earlier ruling would revert. Keep reviewing the evidence; the buttons will unlock when the deadline passes.</p>}
+                  {!evidenceOpen && !judgeWindowOpen && <p role="alert" className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold leading-5 text-rose-700">The judge resolution window has expired. The deployed contract will reject a new ruling for this dispute.</p>}
+                  {!evidenceOpen && judgeWindowOpen && (reasons[d.id] || "").trim().length < 8 && <p className="mt-3 text-[11px] font-semibold text-amber-700">Enter a resolution rationale of at least 8 characters to enable the decision buttons.</p>}
                   <div className="mt-3"><Link href={`/dare/${d.id}`} className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:underline">Open public Dare page <ArrowUpRight size={12}/></Link></div>
                 </div>
               </article>;

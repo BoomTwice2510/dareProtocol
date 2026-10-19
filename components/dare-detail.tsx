@@ -43,7 +43,7 @@ import Link from "next/link";
 
 interface DareDetailProps {
   dare: DareData | null;
-  onRefresh: () => void;
+  onRefresh: () => void | Promise<void>;
 }
 
 function symbolToDisplayName(symbol: string) {
@@ -722,11 +722,13 @@ export function DareDetail({ dare, onRefresh }: DareDetailProps) {
       {/* Transaction Status Banner */}
       {txStage !== "idle" && (
         <div className="glass-panel flex items-start gap-3 rounded-2xl p-4 text-xs font-semibold text-slate-700 shadow-xs">
-          <Loader2
-            className={`h-4 w-4 mt-0.5 shrink-0 text-[#0052FF] ${
-              txStage === "sign" || txStage === "pending" ? "animate-spin" : ""
-            }`}
-          />
+          {txStage === "success" ? (
+            <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+          ) : txStage === "error" ? (
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
+          ) : (
+            <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-[#0052FF]" />
+          )}
           <div className="flex flex-col gap-1">
             {txStage === "sign" && (
               <span>
