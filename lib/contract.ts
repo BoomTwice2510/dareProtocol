@@ -92,7 +92,7 @@ export const DARE_ABI = parseAbi([
   "function getDare(uint256 id) view returns (address creator,address accepter,string description,address token,uint256 stake,uint256 createdAt,uint256 deadline,bool proofSubmitted,string proofURI,uint256 proofTime,uint256 disputeTime,uint8 status)",
   "function getDareMeta(uint256 id) view returns (bool proofRequired,uint256 acceptBy,uint256 proofDeadline,uint256 evidenceDeadline,bytes32 proofHash,bytes32 disputeReasonHash,bytes32 judgeReasonHash,uint256 baseFeeBps,uint256 stakeUsd6,uint256 duration)",
   "function getEvidenceCount(uint256 id) view returns (uint256)",
-  "function getEvidence(uint256 id,uint256 index) view returns (address submitter,string uri,bytes32 contentHash,uint256 submittedAt)",
+  "function getEvidence(uint256 id,uint256 index) view returns ((address submitter,string uri,bytes32 contentHash,uint256 submittedAt))",
   "function getUserStats(address user) view returns (uint256 activeCountCreator,uint256 activeCountAccepter,int256 xpPoints,uint256 totalWins,uint256 totalLosses,uint256 totalVolumeUsd6,uint256 totalDisputeWins)",
   "function getUserBadge(address user) view returns (uint8)",
   "function getUserFeeDiscountBps(address user) view returns (uint256)",

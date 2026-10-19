@@ -62,7 +62,17 @@ export default function JudgePage() {
           for (let i = 0; i < Math.min(evidenceCount, 20); i++) {
             try {
               const item = await readContract("getEvidence", [BigInt(id), BigInt(i)]);
-              evidence.push({ submitter: String(item[0]), uri: String(item[1]), contentHash: String(item[2]), submittedAt: BigInt(item[3]) });
+              // viem versions/RPCs may expose a returned Solidity struct as either
+              // a positional tuple or a named object. Handle both representations.
+              const result = item as any;
+              const row = Array.isArray(result) && result.length === 1 ? result[0] : result;
+              const submitter = row?.submitter ?? row?.[0];
+              const uri = row?.uri ?? row?.[1];
+              const contentHash = row?.contentHash ?? row?.[2];
+              const submittedAt = row?.submittedAt ?? row?.[3];
+              if (submitter && uri != null && contentHash && submittedAt != null) {
+                evidence.push({ submitter: String(submitter), uri: String(uri), contentHash: String(contentHash), submittedAt: BigInt(submittedAt) });
+              }
             } catch { /* keep the rest of the evidence visible */ }
           }
           found.push({

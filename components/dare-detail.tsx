@@ -250,6 +250,7 @@ export function DareDetail({ dare, onRefresh }: DareDetailProps) {
     "idle" | "sign" | "pending" | "success" | "error"
   >("idle");
   const [acceptStep, setAcceptStep] = useState<0 | 1 | 2>(0);
+  const [evidenceRefreshKey, setEvidenceRefreshKey] = useState(0);
 
   const [confirmAction, setConfirmAction] = useState<
     | null
@@ -296,11 +297,20 @@ export function DareDetail({ dare, onRefresh }: DareDetailProps) {
       try {
         const count = Number(await readContract("getEvidenceCount", [BigInt(dare.id)]));
         const rows = await Promise.all(Array.from({ length: Math.min(count, 20) }, (_, i) => readContract("getEvidence", [BigInt(dare.id), BigInt(i)])));
-        if (!cancelled) setDisputeEvidence(rows.map((r: any) => ({ submitter: r[0], uri: r[1], contentHash: r[2], submittedAt: BigInt(r[3]) })));
+        if (!cancelled) setDisputeEvidence(rows.map((result: any) => {
+          // getEvidence returns one Solidity struct tuple, nested inside the function result.
+          const r = Array.isArray(result) && result.length === 1 ? result[0] : result;
+          return {
+            submitter: String(r?.submitter ?? r?.[0] ?? ""),
+            uri: String(r?.uri ?? r?.[1] ?? ""),
+            contentHash: String(r?.contentHash ?? r?.[2] ?? ""),
+            submittedAt: BigInt(r?.submittedAt ?? r?.[3] ?? 0),
+          };
+        }).filter((item) => item.submitter && item.uri));
       } catch (e) { console.error("Could not load dispute evidence", e); }
     })();
     return () => { cancelled = true; };
-  }, [dare?.id, dare?.status, canReviewPrivateEvidence, readContract]);
+  }, [dare?.id, dare?.status, canReviewPrivateEvidence, readContract, evidenceRefreshKey]);
 
   const copyAddress = (addr: string) => {
     navigator.clipboard.writeText(addr);
@@ -320,11 +330,18 @@ export function DareDetail({ dare, onRefresh }: DareDetailProps) {
       setTxHash(hash);
       setTxStage("pending");
       setSuccess(`${label} submitted. Waiting for confirmation...`);
-      onRefresh();
+      const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 1, timeout: 120_000 });
+      if (receipt.status !== "success") throw new Error("The transaction was mined but reverted. Check the transaction on BaseScan.");
+      setTxStage("success");
+      setSuccess(`${label} confirmed on Base Sepolia.`);
+      // Refresh the Dare state and evidence only after the receipt is confirmed.
+      setEvidenceRefreshKey((value) => value + 1);
+      await Promise.resolve(onRefresh());
     } catch (err: any) {
-      const message = err?.message ?? "Transaction failed";
+      const message = err?.shortMessage ?? err?.message ?? "Transaction failed";
       setError(message);
       setTxStage("error");
+      setSuccess("");
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -401,7 +418,10 @@ export function DareDetail({ dare, onRefresh }: DareDetailProps) {
             );
             setTxHash(approveHash);
             setTxStage("pending");
-            await new Promise((r) => setTimeout(r, 3000));
+            setSuccess("Token approval submitted. Waiting for confirmation...");
+            const approvalReceipt = await publicClient.waitForTransactionReceipt({ hash: approveHash, confirmations: 1, timeout: 120_000 });
+            if (approvalReceipt.status !== "success") throw new Error("Token approval transaction reverted.");
+            setSuccess("Token approval confirmed. Continue to accept the Dare.");
           }
         }
 
@@ -429,11 +449,15 @@ export function DareDetail({ dare, onRefresh }: DareDetailProps) {
       "Dare expired"
     );
 
-  const handleSubmitProof = () =>
-    executeAction(
-      () => writeContract("submitProof", [BigInt(dare.id), proofURI]),
+  const handleSubmitProof = () => {
+    const uri = proofURI.trim();
+    if (!uri) { setProofError("Enter a proof URL before submitting."); return; }
+    const proofHash = keccak256(stringToHex(uri));
+    return executeAction(
+      () => writeContract("submitProof", [BigInt(dare.id), uri, proofHash]),
       "Proof submitted"
     );
+  };
 
   const handleConfirmSuccess = () =>
     executeAction(
